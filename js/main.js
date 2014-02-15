@@ -15,7 +15,7 @@
    limitations under the License.
 */
 
-var debugmode = false;
+var debugmode = true;
 
 var states = Object.freeze({
    SplashScreen: 0,
@@ -34,7 +34,7 @@ var jump = -4.6;
 var score = 0;
 var highscore = 0;
 
-var pipeheight = 270;
+var pipeheight = 90;
 var pipewidth = 52;
 var pipes = new Array();
 
@@ -54,27 +54,7 @@ buzz.all().setVolume(volume);
 //loops
 var loopGameloop;
 var loopPipeloop;
-var loopAIloop;
-var statsLoop;
-var handleJumpTimeout;
 
-// AI const
-var deltaMin = - 250;
-var deltaMax = - deltaMin;
-var mesure_freq = updaterate;
-var init_jump_freq = 610;
-var init_pos = position;
-var ai_freq = 100;
-var urgency = 30;
-
-
-// Control vars
-var jump_freq = init_jump_freq;
-
-// Stats vars
-var avg_pos = position;
-var sum_pos = 0;
-var count_average = 0;
 
 $(document).ready(function() {
    if(window.location.search == "?debug")
@@ -87,6 +67,8 @@ $(document).ready(function() {
    if(savedscore != "")
       highscore = parseInt(savedscore);
 
+   // Initialize matrix to steady freq
+   init_matrix();
    //start with the splash screen
    showSplash();
 });
@@ -138,6 +120,8 @@ function showSplash()
 
    //fade in the splash
    $("#splash").transition({ opacity: 1 }, 2000, 'ease');
+
+   setTimeout(screenClick, 1000);
 }
 
 function startGame()
@@ -168,53 +152,6 @@ function startGame()
    playerJump();
 }
 
-function statsLoop () {
-   if (count_average < (ai_freq/mesure_freq)) {
-      sum_pos += position;
-      count_average++;
-   } else {
-      avg_pos = sum_pos / count_average;
-      $('#avg_pos').text(function(i, oldText) {
-        return "avg_pos: ".concat(avg_pos);
-      });
-      sum_pos = 0;
-      count_average = 0;
-   };
-}
-
-function AILoop () {
-
-   var diff = init_pos - avg_pos;
-   var amp = 2 * Math.abs(jump);
-   var delta = diff > 0 ? Math.exp(diff/amp)-1 : -Math.exp(-diff/amp)+1;
-
-   // if (Math.abs(diff) > urgency && handleJumpTimeout) {
-   //    clearTimeout(handleJumpTimeout);
-   //    handleJumpTimeout = null;
-   // };
-
-   if (delta < 0) {
-      // Speed up, if delta less than deltaMin then pick deltaMin instead
-      delta = delta < deltaMin ? deltaMin : delta;
-   } else {
-      // Slow down, if delta more than deltaMax then pick deltaMax instead
-      delta = delta > deltaMax ? deltaMax : delta;
-   }
-
-   jump_freq = init_jump_freq + delta > ai_freq*1.5 ? init_jump_freq + delta : ai_freq * 1.5;
-
-   // if (handleJumpTimeout == null) {handleJumpTimeout = setTimeout(jumpAndSet, jump_freq);};
-
-   $('#freq').text(function(i, oldText) {
-      return "freq: ".concat(jump_freq);
-   });
-}
-
-function jumpAndSet () {
-   playerJump();
-   console.log("Setting next jump: ".concat(jump_freq));
-   handleJumpTimeout = setTimeout(jumpAndSet, jump_freq);
-}
 
 function updatePlayer(player)
 {
@@ -224,6 +161,8 @@ function updatePlayer(player)
    //apply rotation and position
    $(player).css({ rotate: rotation, top: position });
 }
+
+var y1, y2;
 
 function gameloop() {
    var player = $("#player");
@@ -291,6 +230,15 @@ function gameloop() {
       boundingbox.css('width', pipewidth);
    }
 
+   if (pipeleft - boxright <= 189 && !takenCareByInterp) {
+      // first pipe imminent
+      y1 = Math.round(avg_pos);
+      y2 = Math.round((pipetop+pipebottom)/2);
+      console.log("y1, y2 = ".concat(y1).concat(",").concat(y2));
+      jump_freq = dataMatrix[y1][y2];
+      takenCareByInterp = true;
+   };
+
    //have we gotten inside the pipe yet?
    if(boxright > pipeleft)
    {
@@ -302,7 +250,9 @@ function gameloop() {
       }
       else
       {
-         //no! we touched the pipe
+         //no! we touched the pipe, adjust by a step
+         dataMatrix[y1][y2] += boxtop < pipetop ? 15 : -15;
+
          playerDead();
          return;
       }
@@ -310,11 +260,30 @@ function gameloop() {
 
 
    //have we passed the imminent danger?
-   if(boxleft > piperight)
+   if((boxleft+boxright)/2 > (pipeleft+piperight)/2)
    {
       //yes, remove it
       pipes.splice(0, 1);
 
+      y1 = Math.round(avg_pos);
+
+      //determine the bounding box of the next pipes inner area
+      var nextpipe = pipes[0];
+      var nextpipeupper = nextpipe.children(".pipe_upper");
+
+      var pipetop = nextpipeupper.offset().top + nextpipeupper.height();
+      var pipebottom = pipetop + pipeheight;
+
+      y2 = Math.round((pipetop+pipebottom)/2);
+
+      jump_freq = dataMatrix[y1][y2];
+
+      console.log("y1, y2 = ".concat(y1).concat(",").concat(y2));
+
+      if (y1 > y2) {
+         clearTimeout(handleJumpTimeout);
+         handleJumpTimeout = setTimeout(jumpAndSet(), jump_freq);
+      };
       //and score a point
       playerScore();
    }
@@ -442,6 +411,10 @@ function playerDead()
    loopGameloop = null;
    loopPipeloop = null;
 
+   jump_freq = init_jump_freq;
+   init_pos = init_pos;
+
+   takenCareByInterp = false;
    //mobile browsers don't support buzz bindOnce event
    if(isIncompatible.any())
    {
@@ -457,6 +430,13 @@ function playerDead()
          });
       });
    }
+   // setTimeout(replay, 4000);
+   // kriging_train();
+}
+
+function replay () {
+   if(currentstate == states.ScoreScreen)
+      $("#replay").click();
 }
 
 function showScore()
@@ -504,6 +484,7 @@ function showScore()
 
    //make the replay button clickable
    replayclickable = true;
+   replay();
 }
 
 $("#replay").click(function() {
@@ -550,26 +531,156 @@ function updatePipes()
    pipes.push(newpipe);
 }
 
+
+
+
+// ============== AI implementatino
+
+var loopAIloop;
+var statsLoop;
+var handleJumpTimeout;
+
+// AI const
+var deltaMin = - 250;
+var deltaMax = - deltaMin;
+var mesure_freq = updaterate;
+var init_jump_freq = 610;
+var init_pos = position;
+var ai_freq = 100;
+var urgency = 30;
+
+var data_mat_size = 420;
+
+var takenCareByInterp = false;
+
+// Control vars
+var jump_freq = init_jump_freq;
+
+// Stats vars
+var avg_pos = position;
+var sum_pos = 0;
+var count_average = 0;
+
+// Interp
+var variogram;
+var dataMatrix;
+
+function init_matrix () {
+   dataMatrix = [];
+   for(var i=0; i<data_mat_size; i++) {
+      dataMatrix[i] = new Array(data_mat_size);
+
+      for (var j = 0; j <data_mat_size; j++) {
+         dataMatrix[i][j] = init_jump_freq + 400 * (j-i)/data_mat_size;
+      }
+   }
+}
+
+function statsLoop () {
+   if (count_average < (ai_freq/mesure_freq)) {
+      sum_pos += position;
+      count_average++;
+   } else {
+      avg_pos = sum_pos / count_average;
+      $('#avg_pos').text(function(i, oldText) {
+        return "avg_pos: ".concat(avg_pos);
+      });
+      sum_pos = 0;
+      count_average = 0;
+   };
+}
+
+function kriging_train () {
+   var y1 = [], y2 = [], t = [];
+   var model = "spherical";
+   var sigma2 = 0, alpha = 100;
+
+   var count = 0;
+   for (var i = dataMatrix.length - 1; i >= 0; i--) {
+      for (var j = dataMatrix[i].length - 1; j >= 0; j--) {
+         if (count >= 500) {
+            y1.push(i);
+            y2.push(j);
+            t.push(dataMatrix[i][j]);
+            count = 0;
+         };
+         count++;
+      };
+   };
+
+   console.log("training... with y1,y2,t".concat(t.length));
+   variogram = kriging.train(t, y1, y2, model, sigma2, alpha);
+
+   for (var i = dataMatrix.length - 1; i >= 0; i--) {
+      for (var j = dataMatrix[i].length - 1; j >= 0; j--) {
+         console.log("adjusting...");
+         dataMatrix[i][j] = kriging.predict(i, j, variogram);
+      };
+   };
+}
+
+function AILoop () {
+   // Otherwise stay at the same height
+   if (takenCareByInterp) {
+      // update init_pos by avg_pos so that AI maintains its current height
+      // init_pos = avg_pos;
+      return;
+   };
+   var diff = init_pos - avg_pos;
+   var amp = 2 * Math.abs(jump);
+   var delta = diff > 0 ? Math.exp(diff/amp)-1 : -Math.exp(-diff/amp)+1;
+
+   if (delta < 0) {
+      // Speed up, if delta less than deltaMin then pick deltaMin instead
+      delta = delta < deltaMin ? deltaMin : delta;
+   } else {
+      // Slow down, if delta more than deltaMax then pick deltaMax instead
+      delta = delta > deltaMax ? deltaMax : delta;
+   }
+
+   // init_jump_freq maintains more or less flappy's height
+   jump_freq = init_jump_freq + delta > ai_freq*1.5 ? init_jump_freq + delta : ai_freq * 1.5;
+
+   // if (handleJumpTimeout == null) {handleJumpTimeout = setTimeout(jumpAndSet, jump_freq);};
+
+   $('#freq').text(function(i, oldText) {
+      return "freq: ".concat(jump_freq);
+   });
+}
+
+function jumpAndSet () {
+   playerJump();
+
+   $('#freq').text(function(i, oldText) {
+      return "freq: ".concat(jump_freq);
+   });
+   handleJumpTimeout = setTimeout(jumpAndSet, jump_freq);
+}
+
+
+
+// Compat
+
 var isIncompatible = {
    Android: function() {
-   return navigator.userAgent.match(/Android/i);
+      return navigator.userAgent.match(/Android/i);
    },
    BlackBerry: function() {
-   return navigator.userAgent.match(/BlackBerry/i);
+      return navigator.userAgent.match(/BlackBerry/i);
    },
    iOS: function() {
-   return navigator.userAgent.match(/iPhone|iPad|iPod/i);
+      return navigator.userAgent.match(/iPhone|iPad|iPod/i);
    },
    Opera: function() {
-   return navigator.userAgent.match(/Opera Mini/i);
+      return navigator.userAgent.match(/Opera Mini/i);
    },
    Safari: function() {
-   return (navigator.userAgent.match(/OS X.*Safari/) && ! navigator.userAgent.match(/Chrome/));
+      return (navigator.userAgent.match(/OS X.*Safari/) && ! navigator.userAgent.match(/Chrome/));
    },
    Windows: function() {
-   return navigator.userAgent.match(/IEMobile/i);
+      return navigator.userAgent.match(/IEMobile/i);
    },
    any: function() {
-   return (isIncompatible.Android() || isIncompatible.BlackBerry() || isIncompatible.iOS() || isIncompatible.Opera() || isIncompatible.Safari() || isIncompatible.Windows());
+      return (isIncompatible.Android() || isIncompatible.BlackBerry() || isIncompatible.iOS() || isIncompatible.Opera() || isIncompatible.Safari() || isIncompatible.Windows());
    }
 };
