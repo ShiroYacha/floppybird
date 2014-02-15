@@ -251,8 +251,8 @@ function gameloop() {
       else
       {
          //no! we touched the pipe, adjust by a step
-         dataMatrix[y1][y2] += boxtop < pipetop ? 15 : -15;
-
+         dataMatrix[y1][y2] += boxtop < pipetop ? training_delta_step/hitMatrix[y1][y2] : -training_delta_step/hitMatrix[y1][y2];
+         hitMatrix[y1][y2]++;
          playerDead();
          return;
       }
@@ -548,6 +548,7 @@ var init_jump_freq = 610;
 var init_pos = position;
 var ai_freq = 100;
 var urgency = 30;
+var training_delta_step = 15;
 
 var data_mat_size = 420;
 
@@ -564,6 +565,12 @@ var count_average = 0;
 // Interp
 var variogram;
 var dataMatrix;
+var hitMatrix;
+
+function fillArrayWithOnes(n) {
+   var arr = Array.apply(null, Array(n));
+   return arr.map(function (x, i) { return 1 });
+}
 
 function init_matrix () {
    dataMatrix = [];
@@ -573,6 +580,13 @@ function init_matrix () {
       for (var j = 0; j <data_mat_size; j++) {
          dataMatrix[i][j] = init_jump_freq + 400 * (j-i)/data_mat_size;
       }
+   }
+}
+
+function init_hit_matrix () {
+   hitMatrix = [];
+   for(var i=0; i<data_mat_size; i++) {
+      hitMatrix[i] = fillArrayWithOnes(data_mat_size);
    }
 }
 
@@ -590,34 +604,34 @@ function statsLoop () {
    };
 }
 
-function kriging_train () {
-   var y1 = [], y2 = [], t = [];
-   var model = "spherical";
-   var sigma2 = 0, alpha = 100;
+// function kriging_train () {
+//    var y1 = [], y2 = [], t = [];
+//    var model = "spherical";
+//    var sigma2 = 0, alpha = 100;
 
-   var count = 0;
-   for (var i = dataMatrix.length - 1; i >= 0; i--) {
-      for (var j = dataMatrix[i].length - 1; j >= 0; j--) {
-         if (count >= 500) {
-            y1.push(i);
-            y2.push(j);
-            t.push(dataMatrix[i][j]);
-            count = 0;
-         };
-         count++;
-      };
-   };
+//    var count = 0;
+//    for (var i = dataMatrix.length - 1; i >= 0; i--) {
+//       for (var j = dataMatrix[i].length - 1; j >= 0; j--) {
+//          if (count >= 500) {
+//             y1.push(i);
+//             y2.push(j);
+//             t.push(dataMatrix[i][j]);
+//             count = 0;
+//          };
+//          count++;
+//       };
+//    };
 
-   console.log("training... with y1,y2,t".concat(t.length));
-   variogram = kriging.train(t, y1, y2, model, sigma2, alpha);
+//    console.log("training... with y1,y2,t".concat(t.length));
+//    variogram = kriging.train(t, y1, y2, model, sigma2, alpha);
 
-   for (var i = dataMatrix.length - 1; i >= 0; i--) {
-      for (var j = dataMatrix[i].length - 1; j >= 0; j--) {
-         console.log("adjusting...");
-         dataMatrix[i][j] = kriging.predict(i, j, variogram);
-      };
-   };
-}
+//    for (var i = dataMatrix.length - 1; i >= 0; i--) {
+//       for (var j = dataMatrix[i].length - 1; j >= 0; j--) {
+//          console.log("adjusting...");
+//          dataMatrix[i][j] = kriging.predict(i, j, variogram);
+//       };
+//    };
+// }
 
 function AILoop () {
    // Otherwise stay at the same height
