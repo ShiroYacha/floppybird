@@ -15,7 +15,7 @@
    limitations under the License.
 */
 
-var debugmode = true;
+var debugmode = false;
 
 var states = Object.freeze({
    SplashScreen: 0,
@@ -69,6 +69,8 @@ $(document).ready(function() {
 
    // Initialize matrix to steady freq
    init_matrix();
+   // Initialize hitmatrix to ones
+   init_hit_matrix();
    //start with the splash screen
    showSplash();
 });
@@ -88,7 +90,7 @@ function getCookie(cname)
 function setCookie(cname,cvalue,exdays)
 {
    var d = new Date();
-   d.setTime(d.getTime()+(exdays*24*60*60*1000));
+   d.setTime(d.getTime()+(exdays*4*60*60*1000));
    var expires = "expires="+d.toGMTString();
    document.cookie = cname + "=" + cvalue + "; " + expires;
 }
@@ -280,10 +282,10 @@ function gameloop() {
 
       console.log("y1, y2 = ".concat(y1).concat(",").concat(y2));
 
-      // if (y1 > y2) {
-      //    clearTimeout(handleJumpTimeout);
-      //    handleJumpTimeout = setTimeout(jumpAndSet(), jump_freq);
-      // };
+      if (y1 > y2) {
+         clearTimeout(handleJumpTimeout);
+         handleJumpTimeout = setTimeout(jumpAndSet(), jump_freq);
+      };
       // decrease dramatically the training delta
       hitMatrix[y1][y2]+=5;
       //and score a point
@@ -580,7 +582,7 @@ function init_matrix () {
       dataMatrix[i] = new Array(data_mat_size);
 
       for (var j = 0; j <data_mat_size; j++) {
-         dataMatrix[i][j] = init_jump_freq + 400 * (j-i)/data_mat_size;
+         dataMatrix[i][j] = init_jump_freq + 500 * (j-i)/data_mat_size;
       }
    }
 }
