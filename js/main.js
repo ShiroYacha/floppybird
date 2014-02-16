@@ -232,7 +232,7 @@ function gameloop() {
 
    if (pipeleft - boxright <= 189 && !takenCareByInterp) {
       // first pipe imminent
-      y1 = Math.round(avg_pos);
+      y1 = Math.round(position);
       y2 = Math.round((pipetop+pipebottom)/2);
       console.log("y1, y2 = ".concat(y1).concat(",").concat(y2));
       jump_freq = dataMatrix[y1][y2];
@@ -265,7 +265,7 @@ function gameloop() {
       //yes, remove it
       pipes.splice(0, 1);
 
-      y1 = Math.round(avg_pos);
+      y1 = Math.round(position);
 
       //determine the bounding box of the next pipes inner area
       var nextpipe = pipes[0];
@@ -280,10 +280,12 @@ function gameloop() {
 
       console.log("y1, y2 = ".concat(y1).concat(",").concat(y2));
 
-      if (y1 > y2) {
-         clearTimeout(handleJumpTimeout);
-         handleJumpTimeout = setTimeout(jumpAndSet(), jump_freq);
-      };
+      // if (y1 > y2) {
+      //    clearTimeout(handleJumpTimeout);
+      //    handleJumpTimeout = setTimeout(jumpAndSet(), jump_freq);
+      // };
+      // decrease dramatically the training delta
+      hitMatrix[y1][y2]+=5;
       //and score a point
       playerScore();
    }
@@ -548,7 +550,7 @@ var init_jump_freq = 610;
 var init_pos = position;
 var ai_freq = 100;
 var urgency = 30;
-var training_delta_step = 15;
+var training_delta_step = 150;
 
 var data_mat_size = 420;
 
