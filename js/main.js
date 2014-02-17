@@ -71,6 +71,10 @@ $(document).ready(function() {
    init_matrix();
    // Initialize hitmatrix to ones
    init_hit_matrix();
+
+   xs = new Array();
+   ys = new Array();
+
    //start with the splash screen
    showSplash();
 });
@@ -166,6 +170,10 @@ function updatePlayer(player)
 
 var y1, y2;
 
+function report () {
+   console.log("y1, y2 = ".concat(y1).concat(",").concat(y2).concat(" Diff = ").concat(data_mat_size+y1-y2).concat(" Hitmat=").concat(hitMatrix[data_mat_size+y1-y2]).concat(" freq=").concat(jump_freq));
+}
+
 function gameloop() {
    var player = $("#player");
 
@@ -236,8 +244,8 @@ function gameloop() {
       // first pipe imminent
       y1 = Math.round(position);
       y2 = Math.round((pipetop+pipebottom)/2);
-      console.log("y1, y2 = ".concat(y1).concat(",").concat(y2));
-      jump_freq = dataMatrix[y1][y2];
+      report();
+      jump_freq = dataMatrix[data_mat_size+y1-y2];
       takenCareByInterp = true;
    };
 
@@ -253,8 +261,8 @@ function gameloop() {
       else
       {
          //no! we touched the pipe, adjust by a step
-         dataMatrix[y1][y2] += boxtop < pipetop ? training_delta_step/hitMatrix[y1][y2] : -training_delta_step/hitMatrix[y1][y2];
-         hitMatrix[y1][y2]++;
+         dataMatrix[data_mat_size+y1-y2] += boxtop < pipetop ? training_delta_step/hitMatrix[data_mat_size+y1-y2] : -training_delta_step/hitMatrix[data_mat_size+y1-y2];
+         hitMatrix[data_mat_size+y1-y2]++;
          playerDead();
          return;
       }
@@ -278,17 +286,24 @@ function gameloop() {
 
       y2 = Math.round((pipetop+pipebottom)/2);
 
-      jump_freq = dataMatrix[y1][y2];
+      jump_freq = dataMatrix[data_mat_size+y1-y2];
 
-      console.log("y1, y2 = ".concat(y1).concat(",").concat(y2));
+      report();
 
       if (y1 > y2) {
          clearTimeout(handleJumpTimeout);
          handleJumpTimeout = setTimeout(jumpAndSet(), jump_freq);
       };
       // decrease dramatically the training delta
-      hitMatrix[y1][y2]+=5;
+      hitMatrix[data_mat_size+y1-y2]+=3;
+
+      // save for training
+      if ($.inArray(data_mat_size+y1-y2, xs) == -1) {
+         xs.push(data_mat_size+y1-y2);
+         ys.push(dataMatrix[data_mat_size+y1-y2]);
+      };
       //and score a point
+      console.log("xs length: ".concat(xs.length));
       playerScore();
    }
 }
@@ -434,8 +449,12 @@ function playerDead()
          });
       });
    }
-   // setTimeout(replay, 4000);
-   // kriging_train();
+
+   // if (xs.length >= threshold) {
+   //    console.log("Training...");
+   //    CSPL_train(xs, ys);
+   //    threshold *= 2;
+   // };
 }
 
 function replay () {
@@ -555,7 +574,7 @@ var urgency = 30;
 var training_delta_step = 150;
 
 var data_mat_size = 420;
-
+var threshold = 5;
 var takenCareByInterp = false;
 
 // Control vars
@@ -577,21 +596,14 @@ function fillArrayWithOnes(n) {
 }
 
 function init_matrix () {
-   dataMatrix = [];
-   for(var i=0; i<data_mat_size; i++) {
-      dataMatrix[i] = new Array(data_mat_size);
-
-      for (var j = 0; j <data_mat_size; j++) {
-         dataMatrix[i][j] = init_jump_freq + 500 * (j-i)/data_mat_size;
-      }
+   dataMatrix = new Array(data_mat_size);
+   for (var j = 0; j <2*data_mat_size; j++) {
+      dataMatrix[j] = init_jump_freq + 400 * (data_mat_size-j)/data_mat_size;
    }
 }
 
 function init_hit_matrix () {
-   hitMatrix = [];
-   for(var i=0; i<data_mat_size; i++) {
-      hitMatrix[i] = fillArrayWithOnes(data_mat_size);
-   }
+   hitMatrix = fillArrayWithOnes(2*data_mat_size);
 }
 
 function statsLoop () {
@@ -601,41 +613,23 @@ function statsLoop () {
    } else {
       avg_pos = sum_pos / count_average;
       $('#avg_pos').text(function(i, oldText) {
-        return "avg_pos: ".concat(avg_pos);
-      });
+       return "avg_pos: ".concat(avg_pos);
+    });
       sum_pos = 0;
       count_average = 0;
    };
 }
 
-// function kriging_train () {
-//    var y1 = [], y2 = [], t = [];
-//    var model = "spherical";
-//    var sigma2 = 0, alpha = 100;
+function CSPL_train (xs, ys) {
+   var ks = new Array();
+   CSPL.getNaturalKs(xs, ys, ks);
 
-//    var count = 0;
-//    for (var i = dataMatrix.length - 1; i >= 0; i--) {
-//       for (var j = dataMatrix[i].length - 1; j >= 0; j--) {
-//          if (count >= 500) {
-//             y1.push(i);
-//             y2.push(j);
-//             t.push(dataMatrix[i][j]);
-//             count = 0;
-//          };
-//          count++;
-//       };
-//    };
+   console.log(JSON.stringify(ks));
 
-//    console.log("training... with y1,y2,t".concat(t.length));
-//    variogram = kriging.train(t, y1, y2, model, sigma2, alpha);
-
-//    for (var i = dataMatrix.length - 1; i >= 0; i--) {
-//       for (var j = dataMatrix[i].length - 1; j >= 0; j--) {
-//          console.log("adjusting...");
-//          dataMatrix[i][j] = kriging.predict(i, j, variogram);
-//       };
-//    };
-// }
+   for (var i = dataMatrix.length - 1; i >= 0; i--) {
+      dataMatrix[i] = CSPL.evalSpline(i, xs, ys, ks);
+   };
+}
 
 function AILoop () {
    // Otherwise stay at the same height
