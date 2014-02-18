@@ -617,7 +617,7 @@ function init_hit_matrix () {
    hitMatrix = new Array(2*data_mat_size);
    for (var j = 0; j < 2*data_mat_size; j++) {
       // 9 degree per quanta
-      hitMatrix[j] = fillArrayWithNumber(20, 1);
+      hitMatrix[j] = fillArrayWithNumber(60, 1);
    }
 }
 
