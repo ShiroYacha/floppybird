@@ -15,7 +15,7 @@
    limitations under the License.
 */
 
-var debugmode = false;
+var debugmode = true;
 
 var states = Object.freeze({
    SplashScreen: 0,
@@ -34,7 +34,7 @@ var jump = -4.6;
 var score = 0;
 var highscore = 0;
 
-var pipeheight = 270;
+var pipeheight = 90;
 var pipewidth = 52;
 var pipes = new Array();
 
@@ -188,11 +188,6 @@ function AILoop () {
    var amp = 2 * Math.abs(jump);
    var delta = diff > 0 ? Math.exp(diff/amp)-1 : -Math.exp(-diff/amp)+1;
 
-   // if (Math.abs(diff) > urgency && handleJumpTimeout) {
-   //    clearTimeout(handleJumpTimeout);
-   //    handleJumpTimeout = null;
-   // };
-
    if (delta < 0) {
       // Speed up, if delta less than deltaMin then pick deltaMin instead
       delta = delta < deltaMin ? deltaMin : delta;
@@ -273,6 +268,10 @@ function gameloop() {
    if(pipes[0] == null)
       return;
 
+   // stop AI
+   clearInterval(loopAIloop);
+   clearTimeout(handleJumpTimeout);
+
    //determine the bounding box of the next pipes inner area
    var nextpipe = pipes[0];
    var nextpipeupper = nextpipe.children(".pipe_upper");
@@ -318,6 +317,11 @@ function gameloop() {
       //and score a point
       playerScore();
    }
+
+   //ai plays!
+   var pipeThreshold = pipebottom-3;
+   if (box.bottom > pipeThreshold)
+      playerJump();
 }
 
 //Handle space bar
@@ -542,7 +546,7 @@ function updatePipes()
 
    //add a new pipe (top height + bottom height  + pipeheight == 420) and put it in our tracker
    var padding = 80;
-   var constraint = 420 - pipeheight - (padding * 2); //double padding (for top and bottom)
+   var constraint = 400 - pipeheight - (padding * 2); //double padding (for top and bottom)
    var topheight = Math.floor((Math.random()*constraint) + padding); //add lower padding
    var bottomheight = (420 - pipeheight) - topheight;
    var newpipe = $('<div class="pipe animated"><div class="pipe_upper" style="height: ' + topheight + 'px;"></div><div class="pipe_lower" style="height: ' + bottomheight + 'px;"></div></div>');
