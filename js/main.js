@@ -578,7 +578,7 @@ var init_jump_freq = 610;
 var init_pos = position;
 var ai_freq = 100;
 var urgency = 30;
-var training_delta_step = 150;
+var training_delta_step = 15;
 
 var data_mat_size = 420;
 var threshold = 5;
