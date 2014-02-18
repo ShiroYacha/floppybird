@@ -248,7 +248,7 @@ function gameloop() {
       // first pipe imminent
       y1 = Math.round(position);
       y2 = Math.round((pipetop+pipebottom)/2);
-      r  = Math.round((90+rotation)/9);
+      r  = Math.round((90+rotation)/3);
       report();
       jump_freq = dataMatrix[data_mat_size+y1-y2][r];
       takenCareByInterp = true;
@@ -281,7 +281,7 @@ function gameloop() {
       pipes.splice(0, 1);
 
       y1 = Math.round(position);
-      r = Math.round((90+rotation)/9);
+      r = Math.round((90+rotation)/3);
 
       //determine the bounding box of the next pipes inner area
       var nextpipe = pipes[0];
@@ -580,7 +580,7 @@ var mesure_freq = updaterate;
 var init_jump_freq = 610;
 var init_pos = position;
 var ai_freq = 100;
-var urgency = 40;
+var urgency = 70;
 var training_delta_step = 100;
 
 var data_mat_size = 420;
@@ -609,7 +609,7 @@ function init_matrix () {
    dataMatrix = new Array(2*data_mat_size);
    for (var j = 0; j < 2*data_mat_size; j++) {
       // 9 degree per quanta
-      dataMatrix[j] = fillArrayWithNumber(20, init_jump_freq + 430 * (data_mat_size-j)/data_mat_size);
+      dataMatrix[j] = fillArrayWithNumber(60, init_jump_freq + 430 * (data_mat_size-j)/data_mat_size);
    }
 }
 
